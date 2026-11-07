@@ -1,6 +1,7 @@
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
+import { closePool } from './db/pool.js';
 import type { Server } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
@@ -64,18 +65,21 @@ export function shutdownServer(server: Server, signal: string, timeoutMs = SHUTD
     if (fallbackTimer) {
       clearTimeout(fallbackTimer);
     }
-    if (err) {
-      logger.error({ signal, code: (err as NodeJS.ErrnoException).code ?? 'UNKNOWN' }, 'shutdown error');
-      process.exitCode = 1;
-      process.exit(1);
-      return;
-    }
-    if (forced) {
-      process.exitCode = 1;
-      process.exit(1);
-      return;
-    }
-    process.exitCode = 0;
+    void (async () => {
+      await closePool();
+      if (err) {
+        logger.error({ signal, code: (err as NodeJS.ErrnoException).code ?? 'UNKNOWN' }, 'shutdown error');
+        process.exitCode = 1;
+        process.exit(1);
+        return;
+      }
+      if (forced) {
+        process.exitCode = 1;
+        process.exit(1);
+        return;
+      }
+      process.exitCode = 0;
+    })();
   });
 
   return true;

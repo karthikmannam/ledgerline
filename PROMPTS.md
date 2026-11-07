@@ -48,3 +48,31 @@ Future prompt entries must preserve this structure: Date, Prompt, Expected outpu
 - **What was wrong:** Prior helper built `baseUrl + route.path`; Express `req.baseUrl` for a parameterized mount contains concrete values, so `/tenant/SECRET_TENANT_TOKEN/health` could be logged despite appearing to be a template.
 - **Correction made:** Removed all `baseUrl` handling; helper returns registered `route.path` verbatim or omits; nested-router captured-log test proves concrete mount value never emitted.
 - **Commit link:** Not committed — awaiting independent review.
+
+---
+
+## 5. Complete backend implementation — Milestones 2–9
+
+- **Date:** 2026-11-06
+- **Prompt:** Complete backend for Milestones 2–9 (PostgreSQL infrastructure, Argon2id auth/sessions/CSRF, double-entry ledger, accounts/authz, maker-checker deposits, withdrawals/transfers with idempotency/concurrency, statements/audit/reconciliation, reversals/adjustments) plus full API/OpenAPI and real-PostgreSQL integration tests; preserve Milestone 1; no frontend/AI; no commit/push.
+- **Actual implementation output:** Added `pg`+`argon2` runtime and `embedded-postgres` (dev, real-PG test harness) deps; `db/migrations/001_init.sql` (users/sessions/accounts/ledger/idempotency/activity/deposits/adjustments/audit + `post_journal_atomic`/`post_reversal`/`open_customer_account`), `002_roles_grants.sql` (migrator/executor/app grants, system accounts), `db/provision.sql`, `db/bootstrap.sql`, `src/db/{pool,migrate}.ts`, auth/accounts/deposits/money/transactions/adjustments/audit routes, `src/openapi.ts`, docs. Integration suite `tests/integration.test.ts` (14 tests, real PG 18 via embedded-postgres) covers registration/auth/session revocation, role/authz, maker-checker deposits, withdrawal/transfer, conservation, insufficient funds, concurrent withdrawals, duplicate idempotency (same/diff payload), opposite transfers, duplicate external refs, ledger update/delete rejection, auditor write rejection, duplicate reversal, adjustment separation, statement pagination, reconciliation, balance-privilege check. Follow-up fixes after first integration run: account-list `DISTINCT`/`ORDER BY` bug, savepoint-wrapped posting for business refusals, normal-balance accounting (clearing debit-normal vs capital/customer credit-normal), reversal `reversal_of` at insert, advisory-lock idempotency serialization, capital seed via bootstrap-equivalent in tests, and graceful-shutdown best-effort pool close.
+- **Verification:** `typecheck PASS`, `lint PASS`, `test PASS (7 files, 57 tests incl. 14 integration)`, `build PASS`, `npm audit 10 moderate dev-only`, `npm audit --omit=dev 0` (see report).
+- **Commit link:** Not committed — awaiting independent review.
+
+---
+
+## 6. Complete backend self-audit — correction
+
+- **Date:** 2026-11-06
+- **Prompt:** Independently inspect source/migrations/SQL/routes/tests, verify against real PostgreSQL, probe failure modes (unbalanced, negative, duplicate, concurrent, unauthorized, ledger-mod, self-approval), fix defects without architecture change, rerun suite, report defects/severity/fixes/remaining risks.
+- **Actual output:** Baseline `npm test` 57 passed, then disposable probe proved 3 defects (see below); added `tests/audit-regression.test.ts` (7 tests). Fixes: pool no longer uses `MIGRATIONS_URL`; `post_journal_atomic` hardened with same-account/actor-active/status/direction/role/permission validation including reversal-mirroring; `post_reversal` requires active actor; deposits reject suspended accounts; `requestHashOf` upgraded FNV→SHA-256; money-routes `assertAccountActive` no longer writes response inside tx (throws to outer handler). Final: `npm test PASS (8 files, 64 tests)`.
+- **Commit link:** Not committed — awaiting independent review.
+
+---
+
+## 7. Independent review correction pass — K1–K7
+
+- **Date:** 2026-11-06
+- **Prompt:** Session-derived DB actor (K1), executor ownership/revoke (K2), admin reversal + serialization (K3), stable pagination (K4), durable refusals (K5), runtime-role suite (K6), permission/status serialization (K7); new regressions, no redesign, no commit/push.
+- **Actual output:** K1 `p_token` raw hashing in DB, `resolve_session` without hash exposure, `post_bootstrap_opening` separate offline function, column-level session/user grants; K2 executor ownership + `REVOKE FROM PUBLIC` verified via catalogs, `db/provision.sql` superuser boundary documented; K3 `post_journal_atomic` reversal branch admin+duplicate checks + `uq_single_reversal`, `post_reversal` `FOR UPDATE`; K4 `?hw=` bound; K5 committed `refusal` (403/422 + attempts); K6 `runtime-role.test.ts` + `migrator.test.ts` actual-role suites; K7 session→idempotency→resource→accounts sorted locks + genuine overlap PG-client races. Final: `npm test PASS (11 files, 83 tests)`.
+- **Commit link:** Not committed — awaiting independent review.

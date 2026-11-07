@@ -1,0 +1,18 @@
+-- Offline opening-balance bootstrap: balanced DR clearing / CR capital journals.
+-- Usage: psql "$MIGRATIONS_URL" -f db/bootstrap.sql with variables via psql -v
+-- DO NOT expose as HTTP endpoint. Requires reviewed values per deployment.
+-- Example reviewed values (paise): \set clearing_opening 1000000
+-- This script assumes existing clearing/capital system accounts and one or more
+-- customer accounts identified by ledger id in \set opening_acct / \set opening_amount.
+-- It is intentionally explicit and must be reviewed before execution.
+
+-- INSERT example (manual review required):
+-- SELECT post_journal_atomic('credit_adjustment', NULL, clearing_id, customer_id, amount, NULL, '{"bootstrap": true}'::jsonb)
+--   FROM ledger_accounts AS clearing JOIN ledger_accounts AS customer ON true
+--   WHERE clearing.kind='clearing' AND customer.id = :opening_acct;
+-- Opening-balance rule: DR clearing / CR capital for system seed; customer credits
+-- are opened via separate reviewed credit adjustments (DR capital / CR customer):
+-- SELECT post_journal_atomic('credit_adjustment', NULL, capital_id, customer_id, amount, NULL, '{"bootstrap":true}'::jsonb)
+--   FROM ledger_accounts AS capital JOIN ledger_accounts AS customer ON true
+--   WHERE capital.kind='capital' AND customer.id = :opening_acct;
+-- DO NOT run without reviewed single-statement values.
