@@ -1,0 +1,19 @@
+# Default line endings: LF for source and config files
+* text=auto eol=lf
+
+# Explicit LF for source files
+*.ts text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.example text eol=lf
+*.gitignore text eol=lf
+*.nvmrc text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
