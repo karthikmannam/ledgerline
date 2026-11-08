@@ -33,3 +33,13 @@ Thumbs.db
 # Editor
 .vscode/settings.json
 .idea/
+
+# LedgerLine local database and debug artifacts
+.ledgerline-pg-data/
+.tmp-*/
+.tmp-debug-grants/
+.tmp-test-pg-5432/
+screenshots/
+scratch-connect.cjs
+scratch-connect.js
+test-out.txt

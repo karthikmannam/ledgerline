@@ -19,7 +19,8 @@ GRANT SELECT, INSERT, UPDATE ON TABLE deposit_requests, adjustment_requests TO l
 GRANT SELECT ON TABLE audit_events TO ledgerline_app;
 GRANT SELECT (id, email, password_hash, role, is_active, created_at) ON TABLE users TO ledgerline_app;
 GRANT SELECT (id, user_id, expires_at, revoked_at, created_at) ON TABLE sessions TO ledgerline_app;
-GRANT SELECT ON TABLE ledger_accounts, journal_transactions, journal_postings, balance_projections, account_activity TO ledgerline_app;
+GRANT SELECT, UPDATE ON TABLE ledger_accounts TO ledgerline_app;
+GRANT SELECT ON TABLE journal_transactions, journal_postings, balance_projections, account_activity TO ledgerline_app;
 GRANT USAGE ON SEQUENCE auth_rate_limits_id_seq TO ledgerline_app;
 GRANT EXECUTE ON FUNCTION resolve_session(text) TO ledgerline_app;
 GRANT EXECUTE ON FUNCTION register_user(text, text) TO ledgerline_app;

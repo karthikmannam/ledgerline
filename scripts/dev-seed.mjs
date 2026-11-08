@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import pg from 'pg';
 import argon2 from 'argon2';
 
-const DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/ledgerline';
+const DATABASE_URL = process.env.MIGRATIONS_URL ?? process.env.DATABASE_URL ?? 'postgresql://localhost:5432/ledgerline';
 const client = new pg.Client({ connectionString: DATABASE_URL });
 
 function sha256Hex(value) {
@@ -69,6 +69,19 @@ try {
   const holder2Id = await upsertUser('holder2@ledgerline.dev', 'HolderPass123!', 'holder');
 
   const adminSession = await createSession(adminId, 24);
+
+  // Ensure system capital account has opening balance from clearing
+  const clearing = await client.query(`SELECT id FROM ledger_accounts WHERE kind = 'clearing' LIMIT 1`);
+  const capital = await client.query(`SELECT id FROM ledger_accounts WHERE kind = 'capital' LIMIT 1`);
+  const capBal = await client.query(`SELECT balance_paise FROM balance_projections WHERE ledger_account_id = $1`, [capital.rows[0].id]);
+  if (BigInt(capBal.rows[0]?.balance_paise ?? 0) < 50000000n) {
+    await client.query(`SELECT post_bootstrap_opening($1, $2, $3, '{"seed":true}'::jsonb)`, [
+      clearing.rows[0].id,
+      capital.rows[0].id,
+      '100000000'
+    ]);
+  }
+
   const account1 = await ensureAccountBalance(holder1Id, 'Primary checking', 2500000, adminSession.token);
   const account2 = await ensureAccountBalance(holder2Id, 'Secondary checking', 1500000, adminSession.token);
 
