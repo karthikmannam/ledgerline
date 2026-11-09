@@ -76,3 +76,15 @@ Future prompt entries must preserve this structure: Date, Prompt, Expected outpu
 - **Prompt:** Session-derived DB actor (K1), executor ownership/revoke (K2), admin reversal + serialization (K3), stable pagination (K4), durable refusals (K5), runtime-role suite (K6), permission/status serialization (K7); new regressions, no redesign, no commit/push.
 - **Actual output:** K1 `p_token` raw hashing in DB, `resolve_session` without hash exposure, `post_bootstrap_opening` separate offline function, column-level session/user grants; K2 executor ownership + `REVOKE FROM PUBLIC` verified via catalogs, `db/provision.sql` superuser boundary documented; K3 `post_journal_atomic` reversal branch admin+duplicate checks + `uq_single_reversal`, `post_reversal` `FOR UPDATE`; K4 `?hw=` bound; K5 committed `refusal` (403/422 + attempts); K6 `runtime-role.test.ts` + `migrator.test.ts` actual-role suites; K7 session→idempotency→resource→accounts sorted locks + genuine overlap PG-client races. Final: `npm test PASS (11 files, 83 tests)`.
 - **Commit link:** Not committed — awaiting independent review.
+
+---
+
+## 8. Embedded PostgreSQL migration-test startup correction
+
+- **Date:** 2026-11-09
+- **Prompt:** The original prompt text is not preserved in this repository. The task recoverable from the fix commit was to correct the embedded PostgreSQL startup configuration used by `tests/migrator.test.ts`.
+- **Issue and diagnosis:** The embedded PostgreSQL instance used by the migration test was reported as failing to start reliably. The evidence retained in the fix is the test configuration diff: its port changed from `54405` to `54406`, and the server was explicitly bound to `127.0.0.1`. The original startup error output is not preserved here, so the exact OS/network cause and the individual necessity of each setting cannot be independently confirmed.
+- **Changes implemented:** `tests/migrator.test.ts` now uses port `54406` and passes `postgresFlags: ['-c', 'listen_addresses=127.0.0.1']` to the embedded server. These are the only changes shown by the fixing commit.
+- **Verification:** This checkout contains the targeted migration tests, but no post-fix targeted-test output was found; they were not run during this documentation task because database provisioning and migration execution were explicitly out of scope. The latest full-suite result recorded in the preceding entry is `PASS (11 files, 83 tests)` from November 6, before this fix. No post-fix full-suite result is recorded here, and the earlier result must not be interpreted as verification of the November 9 change.
+- **AI suggestions vs. implemented changes:** No AI transcript or specific AI suggestion for this fix is preserved in the repository, so none is attributed. The test-configuration changes described above are those present in the committed source.
+- **Commit:** `473b5f0` (actual fixing commit; no permalink is recorded in this repository).
