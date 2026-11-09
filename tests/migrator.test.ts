@@ -5,7 +5,7 @@ import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
 import { spawnSync } from 'node:child_process';
 
-const PORT = 54405;
+const PORT = 54406;
 const DB = 'ledgerline';
 const SUPER_URL = `postgres://postgres:password@127.0.0.1:${PORT}/${DB}`;
 void SUPER_URL;
@@ -32,6 +32,7 @@ beforeAll(async () => {
     user: 'postgres',
     password: 'password',
     port: PORT,
+    postgresFlags: ['-c', 'listen_addresses=127.0.0.1'],
     initdbFlags: ['--set=shared_buffers=128MB', '--no-sync'],
     persistent: false
   });
