@@ -4,7 +4,10 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 async function migrate(): Promise<void> {
-  const url = process.env.MIGRATIONS_URL ?? process.env.DATABASE_URL ?? 'postgres://ledgerline_migrator:ledgerline_migrator@localhost:5432/ledgerline';
+  const url = process.env.MIGRATIONS_URL;
+  if (!url) {
+    throw new Error('MIGRATIONS_URL environment variable is required. Set it to the ledgerline_migrator connection string.');
+  }
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {
@@ -12,7 +15,6 @@ async function migrate(): Promise<void> {
     const here = dirname(fileURLToPath(import.meta.url));
     const dir = join(here, '../../db/migrations');
     const files = (await readdir(dir)).filter((f) => f.endsWith('.sql')).sort();
-    const grantsPath = join(here, '../../db/grants.sql');
     await client.query(
       `CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`
     );
@@ -33,8 +35,6 @@ async function migrate(): Promise<void> {
         throw err;
       }
     }
-    const grantsSql = await readFile(grantsPath, 'utf8');
-    await client.query(grantsSql);
     console.log('migrations ok');
   } finally {
     await client.query('SELECT pg_advisory_unlock(727272)').catch(() => undefined);

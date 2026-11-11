@@ -1,0 +1,137 @@
+# Render Free deployment configuration for LedgerLine.
+#
+# Two services:
+#   1. ledgerline-api       — Node.js Web Service (backend, Free instance)
+#   2. ledgerline-frontend  — Static Site (Vite/React build, free CDN)
+#
+# Blueprint facts verified against render.com/docs/blueprint-spec:
+#   - Static sites use `type: web` with `runtime: static` (there is no `type: static`,
+#     and static sites take no `plan`, `region`, `port`, or `healthCheckPath`).
+#   - Rewrite destinations may be full public URLs (proxy) and the `*` in the
+#     destination is replaced with the string captured by the source wildcard.
+#   - Rules apply top-to-bottom: specific rules first, SPA catch-all last.
+#   - Rule sources are never applied when a real file exists at that path.
+#
+# IMPORTANT — the backend mounts its routes at the ROOT (/auth, /accounts, ...),
+# so proxy destinations mirror the incoming path; there is no /api prefix.
+#
+# After the first deploy, confirm the actual *.onrender.com subdomains Render
+# assigned (they are globally unique; if a name is taken Render renames it) and
+# update:
+#   - every rewrite destination host below
+#   - the FRONTEND_ORIGINS secret on ledgerline-api
+#
+# Secrets (sync: false) must be set once in the Render dashboard:
+#   DATABASE_URL       — Neon POOLED endpoint (host contains `-pooler`), used by the app
+#   FRONTEND_ORIGINS   — https://<actual-frontend-subdomain>.onrender.com
+#
+# Migrations are NOT run by this service. Run them once, manually, from your
+# machine before first deploy (and after adding migration files):
+#   psql "$NEON_ADMIN_URL" -f db/provision-neon.sql   # one-time provisioning
+#   psql "$NEON_ADMIN_URL" -c "\password ledgerline_app"
+#   psql "$NEON_ADMIN_URL" -c "\password ledgerline_migrator"
+#   MIGRATIONS_URL="postgres://ledgerline_migrator:<pw>@<direct-host>/neondb?sslmode=require" npm run db:migrate
+# MIGRATIONS_URL must use Neon's DIRECT (non-pooler) endpoint: the runner relies
+# on a session-level advisory lock (pg_advisory_lock), which PgBouncer transaction
+# pooling cannot guarantee. The app's DATABASE_URL should use the POOLED endpoint.
+
+services:
+  # Backend API — Node.js Web Service -------------------------------------------
+  - type: web
+    name: ledgerline-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health/ready
+    autoDeploy: true
+    envVars:
+      # Render's default Node may be older than 22.9, which is when
+      # --env-file-if-exists (used by `npm start`) was introduced.
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # Required: without this, npm skips devDependencies when NODE_ENV=production
+      # and `tsc` (a devDependency) would be missing during the build.
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
+      - key: LOG_LEVEL
+        value: info
+      - key: SESSION_TTL_HOURS
+        value: "24"
+      # Both hosts are HTTPS, so Secure cookies are correct.
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_ORIGINS
+        sync: false
+
+  # Frontend — Static Site -------------------------------------------------------
+  - type: web
+    runtime: static
+    name: ledgerline-frontend
+    buildCommand: npm --prefix frontend ci && npm --prefix frontend run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Build-time only. Empty string = same-origin: apiClient() builds relative
+      # URLs, and the rewrite rules below proxy them to the backend, keeping the
+      # HttpOnly session cookie and CSRF double-submit cookie same-origin.
+      - key: VITE_API_BASE_URL
+        value: ""
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      # --- API proxy (same path on the backend; listed before the SPA fallback) ---
+      - type: rewrite
+        source: /auth/*
+        destination: https://ledgerline-api.onrender.com/auth/*
+      - type: rewrite
+        source: /accounts
+        destination: https://ledgerline-api.onrender.com/accounts
+      - type: rewrite
+        source: /accounts/*
+        destination: https://ledgerline-api.onrender.com/accounts/*
+      - type: rewrite
+        source: /deposit-requests
+        destination: https://ledgerline-api.onrender.com/deposit-requests
+      - type: rewrite
+        source: /deposit-requests/*
+        destination: https://ledgerline-api.onrender.com/deposit-requests/*
+      - type: rewrite
+        source: /withdrawals
+        destination: https://ledgerline-api.onrender.com/withdrawals
+      - type: rewrite
+        source: /transfers
+        destination: https://ledgerline-api.onrender.com/transfers
+      - type: rewrite
+        source: /transactions/*
+        destination: https://ledgerline-api.onrender.com/transactions/*
+      - type: rewrite
+        source: /adjustments
+        destination: https://ledgerline-api.onrender.com/adjustments
+      - type: rewrite
+        source: /adjustments/*
+        destination: https://ledgerline-api.onrender.com/adjustments/*
+      - type: rewrite
+        source: /audit/*
+        destination: https://ledgerline-api.onrender.com/audit/*
+      - type: rewrite
+        source: /health
+        destination: https://ledgerline-api.onrender.com/health
+      - type: rewrite
+        source: /health/*
+        destination: https://ledgerline-api.onrender.com/health/*
+      - type: rewrite
+        source: /openapi.json
+        destination: https://ledgerline-api.onrender.com/openapi.json
+      # --- SPA catch-all: must remain the LAST rule ---
+      - type: rewrite
+        source: /*
+        destination: /index.html

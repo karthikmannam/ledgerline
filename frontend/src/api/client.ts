@@ -1,7 +1,7 @@
 import { getCsrfToken } from '@/lib/csrf';
 import type { ApiErrorDetail } from '@/types/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
 
 export class ApiError extends Error {
   code: string;
@@ -42,7 +42,13 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
   }
 
   // Build query string
-  let url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  let url: string;
+  if (API_BASE_URL) {
+    url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  } else {
+    // Same-origin: use relative URL
+    url = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  }
   if (options.params) {
     const searchParams = new URLSearchParams();
     for (const [key, val] of Object.entries(options.params)) {

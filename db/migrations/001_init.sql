@@ -204,7 +204,18 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ledgerlin
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO ledgerline_executor;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ledgerline_migrator;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO ledgerline_migrator;
-GRANT CONNECT ON DATABASE ledgerline TO ledgerline_app;
+-- Database-agnostic CONNECT grant: PostgreSQL cannot express
+-- GRANT ... ON DATABASE <current db> dynamically, and the database name
+-- differs between environments (ledgerline locally, neondb on Neon, where
+-- CONNECT was already granted during provisioning). Only grant when the
+-- database is actually named "ledgerline" (local/dev path); on any other
+-- database name the CONNECT grant must have been made during provisioning.
+DO $$
+BEGIN
+  IF current_database() = 'ledgerline' THEN
+    GRANT CONNECT ON DATABASE ledgerline TO ledgerline_app;
+  END IF;
+END $$;
 GRANT USAGE ON SCHEMA public TO ledgerline_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   auth_rate_limits,

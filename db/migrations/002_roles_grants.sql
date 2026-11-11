@@ -6,6 +6,7 @@ GRANT USAGE, CREATE ON SCHEMA public TO ledgerline_executor;
 GRANT USAGE ON SCHEMA public TO ledgerline_app;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ledgerline_app;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM ledgerline_app;
+-- Revoke from migrator-owned functions (log_audit_event, forbid_update) as migrator.
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, ledgerline_app;
 GRANT SELECT ON users, sessions, ledger_accounts, account_permissions TO ledgerline_executor;
 GRANT SELECT, INSERT, UPDATE ON ledger_accounts TO ledgerline_executor;
@@ -17,6 +18,8 @@ GRANT INSERT ON account_activity TO ledgerline_executor;
 -- The security-definer functions are created under the executor role so they retain the
 -- correct ownership without requiring a later ALTER FUNCTION ... OWNER TO, which hits the
 -- public schema ACL checks and fails under the migrator-only execution path.
+-- Must run as ledgerline_executor to revoke PUBLIC from executor-owned functions.
+SET ROLE ledgerline_executor;
 REVOKE ALL ON FUNCTION post_bootstrap_opening(uuid, uuid, bigint, jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION post_journal_atomic(journal_type, text, uuid, uuid, bigint, text, jsonb, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION post_reversal(uuid, uuid, jsonb, text) FROM PUBLIC;
@@ -25,6 +28,7 @@ REVOKE ALL ON FUNCTION resolve_session(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION register_user(text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION issue_session(uuid, text, text, int) FROM PUBLIC;
 REVOKE ALL ON FUNCTION revoke_session_by_token(text) FROM PUBLIC;
+RESET ROLE;
 GRANT EXECUTE ON FUNCTION resolve_session(text) TO ledgerline_app;
 GRANT EXECUTE ON FUNCTION register_user(text, text) TO ledgerline_app;
 GRANT EXECUTE ON FUNCTION issue_session(uuid, text, text, int) TO ledgerline_app;
