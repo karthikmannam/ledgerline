@@ -1,8 +1,10 @@
 # Render Free deployment configuration for LedgerLine.
 #
-# Two services:
-#   1. ledgerline-api       — Node.js Web Service (backend, Free instance)
-#   2. ledgerline-frontend  — Static Site (Vite/React build, free CDN)
+# Two services (names chosen to avoid a subdomain conflict: an unrelated
+# service already occupies ledgerline-api.onrender.com; both -prod names
+# were verified available on 2026-11-11):
+#   1. ledgerline-api-prod       — Node.js Web Service (backend, Free instance)
+#   2. ledgerline-frontend-prod  — Static Site (Vite/React build, free CDN)
 #
 # Blueprint facts verified against render.com/docs/blueprint-spec:
 #   - Static sites use `type: web` with `runtime: static` (there is no `type: static`,
@@ -19,11 +21,12 @@
 # assigned (they are globally unique; if a name is taken Render renames it) and
 # update:
 #   - every rewrite destination host below
-#   - the FRONTEND_ORIGINS secret on ledgerline-api
+#   - the FRONTEND_ORIGINS secret on ledgerline-api-prod
 #
 # Secrets (sync: false) must be set once in the Render dashboard:
 #   DATABASE_URL       — Neon POOLED endpoint (host contains `-pooler`), used by the app
-#   FRONTEND_ORIGINS   — https://<actual-frontend-subdomain>.onrender.com
+#   FRONTEND_ORIGINS   — https://ledgerline-frontend-prod.onrender.com
+#                        (must match the ACTUAL deployed static-site URL)
 #
 # Migrations are NOT run by this service. Run them once, manually, from your
 # machine before first deploy (and after adding migration files):
@@ -38,7 +41,7 @@
 services:
   # Backend API — Node.js Web Service -------------------------------------------
   - type: web
-    name: ledgerline-api
+    name: ledgerline-api-prod
     runtime: node
     plan: free
     region: oregon
@@ -72,7 +75,7 @@ services:
   # Frontend — Static Site -------------------------------------------------------
   - type: web
     runtime: static
-    name: ledgerline-frontend
+    name: ledgerline-frontend-prod
     buildCommand: npm --prefix frontend ci && npm --prefix frontend run build
     staticPublishPath: frontend/dist
     envVars:
@@ -91,46 +94,46 @@ services:
       # --- API proxy (same path on the backend; listed before the SPA fallback) ---
       - type: rewrite
         source: /auth/*
-        destination: https://ledgerline-api.onrender.com/auth/*
+        destination: https://ledgerline-api-prod.onrender.com/auth/*
       - type: rewrite
         source: /accounts
-        destination: https://ledgerline-api.onrender.com/accounts
+        destination: https://ledgerline-api-prod.onrender.com/accounts
       - type: rewrite
         source: /accounts/*
-        destination: https://ledgerline-api.onrender.com/accounts/*
+        destination: https://ledgerline-api-prod.onrender.com/accounts/*
       - type: rewrite
         source: /deposit-requests
-        destination: https://ledgerline-api.onrender.com/deposit-requests
+        destination: https://ledgerline-api-prod.onrender.com/deposit-requests
       - type: rewrite
         source: /deposit-requests/*
-        destination: https://ledgerline-api.onrender.com/deposit-requests/*
+        destination: https://ledgerline-api-prod.onrender.com/deposit-requests/*
       - type: rewrite
         source: /withdrawals
-        destination: https://ledgerline-api.onrender.com/withdrawals
+        destination: https://ledgerline-api-prod.onrender.com/withdrawals
       - type: rewrite
         source: /transfers
-        destination: https://ledgerline-api.onrender.com/transfers
+        destination: https://ledgerline-api-prod.onrender.com/transfers
       - type: rewrite
         source: /transactions/*
-        destination: https://ledgerline-api.onrender.com/transactions/*
+        destination: https://ledgerline-api-prod.onrender.com/transactions/*
       - type: rewrite
         source: /adjustments
-        destination: https://ledgerline-api.onrender.com/adjustments
+        destination: https://ledgerline-api-prod.onrender.com/adjustments
       - type: rewrite
         source: /adjustments/*
-        destination: https://ledgerline-api.onrender.com/adjustments/*
+        destination: https://ledgerline-api-prod.onrender.com/adjustments/*
       - type: rewrite
         source: /audit/*
-        destination: https://ledgerline-api.onrender.com/audit/*
+        destination: https://ledgerline-api-prod.onrender.com/audit/*
       - type: rewrite
         source: /health
-        destination: https://ledgerline-api.onrender.com/health
+        destination: https://ledgerline-api-prod.onrender.com/health
       - type: rewrite
         source: /health/*
-        destination: https://ledgerline-api.onrender.com/health/*
+        destination: https://ledgerline-api-prod.onrender.com/health/*
       - type: rewrite
         source: /openapi.json
-        destination: https://ledgerline-api.onrender.com/openapi.json
+        destination: https://ledgerline-api-prod.onrender.com/openapi.json
       # --- SPA catch-all: must remain the LAST rule ---
       - type: rewrite
         source: /*
